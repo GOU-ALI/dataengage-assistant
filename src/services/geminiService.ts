@@ -1,59 +1,46 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { LinkedInPost } from "../types";
 
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-if (!API_KEY) {
-  throw new Error("VITE_API_KEY environment variable not set. Please create a .env file and add it.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
-const responseSchema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      title: {
-        type: Type.STRING,
-        description: "A short, catchy title for the post proposal (e.g., 'The Rise of Data Lakehouses').",
-      },
-      content: {
-        type: Type.STRING,
-        description: "The full text of the LinkedIn post, including an engaging hook, informative body, and a clear call-to-action.",
-      },
-      hashtags: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.STRING,
-        },
-        description: "An array of 3 to 5 relevant hashtags, each starting with the '#' symbol (e.g., '#DataEngineering').",
-      },
-    },
-    required: ["title", "content", "hashtags"],
-  },
-};
-
 export const generateLinkedInPosts = async (): Promise<LinkedInPost[]> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Generate 2 distinct LinkedIn post proposals about Data Engineering. Topics can include best practices, Big Data trends, modern tools like Cloud, Spark, Kafka, or Data Lakehouse concepts. Each post must be between 120 and 200 words, written in a professional yet accessible style. The structure should be: 1. An engaging hook. 2. Informative content. 3. A clear conclusion or call-to-action. Also, provide 3 to 5 relevant hashtags for each post. Ensure the two proposals cover different topics or angles to provide a real choice.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      },
-    });
+  // Check API key at runtime, not at import time
+  if (!API_KEY) {
+    throw new Error("API key not found. Please add VITE_API_KEY to your .env file.");
+  }
 
-    const jsonText = response.text.trim();
-    const posts: LinkedInPost[] = JSON.parse(jsonText);
+  try {
+    console.log("Generating posts with Gemini API...");
+    const genAI = new GoogleGenAI(API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    const prompt = `Generate 2 distinct LinkedIn posts about Data Engineering in JSON format. 
+    Format: [{"title": "short catchy title", "content": "120-200 words with engaging hook, informative body, and call-to-action", "hashtags": ["#tag1", "#tag2", "#tag3"]}]
+    
+    Topics can include: best practices, Big Data trends, tools like Spark/Kafka/Airflow, Cloud platforms, Data Lakehouse, MLOps, real-time processing, data quality, etc.
+    
+    Return only valid JSON array, no additional text.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      throw new Error("Invalid response format from Gemini API");
+    }
+    
+    const posts: LinkedInPost[] = JSON.parse(jsonMatch[0]);
     
     // Basic validation
     if (!Array.isArray(posts) || posts.length === 0) {
-      throw new Error("Invalid response format from Gemini API.");
+      throw new Error("Invalid response format");
     }
 
+    console.log("Posts generated successfully");
     return posts;
+    
   } catch (error) {
     console.error("Error generating LinkedIn posts:", error);
     throw new Error("Failed to generate content. Please check your API key and connection.");

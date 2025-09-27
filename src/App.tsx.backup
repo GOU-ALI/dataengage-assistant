@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { LinkedInPost } from './types';
 import { generateLinkedInPosts } from './services/geminiService';
