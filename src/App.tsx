@@ -1,0 +1,81 @@
+import React, { useState, useCallback } from 'react';
+import { LinkedInPost } from './types';
+import { generateLinkedInPosts } from './services/geminiService';
+import Header from './components/Header';
+import PostCard from './components/PostCard';
+import LoadingSpinner from './components/LoadingSpinner';
+import { SparkleIcon } from './components/Icons';
+
+const App: React.FC = () => {
+  const [posts, setPosts] = useState<LinkedInPost[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGeneratePosts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    setPosts([]);
+    try {
+      const generatedPosts = await generateLinkedInPosts();
+      setPosts(generatedPosts);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  return (
+    <div className="min-h-screen font-sans">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <button
+            onClick={handleGeneratePosts}
+            disabled={isLoading}
+            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full text-white bg-brand-blue hover:bg-blue-700 disabled:bg-slate-500 disabled:cursor-not-allowed transition-transform transform hover:scale-105"
+          >
+            {isLoading ? (
+              <>
+                <LoadingSpinner />
+                <span className="ml-2">Generating...</span>
+              </>
+            ) : (
+             <>
+               <SparkleIcon className="w-5 h-5 mr-2" />
+               <span>Generate Daily Posts</span>
+             </>
+            )}
+          </button>
+          {error && <p className="text-red-400 mt-4">{error}</p>}
+        </div>
+
+        {posts.length === 0 && !isLoading && !error && (
+            <div className="text-center bg-dark-card border border-dark-border rounded-lg p-12 max-w-2xl mx-auto">
+                <h2 className="text-2xl font-bold text-light-text mb-2">{getGreeting()}! Ready to engage?</h2>
+                <p className="text-medium-text">Click the "Generate Daily Posts" button to get two fresh, AI-powered content ideas for your LinkedIn profile.</p>
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {posts.map((post, index) => (
+            <PostCard key={index} post={post} proposalNumber={index + 1} />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default App;
